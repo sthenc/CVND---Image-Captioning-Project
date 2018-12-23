@@ -22,7 +22,7 @@ class EncoderCNN(nn.Module):
     
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, drop_prob=0.1):
+    def __init__(self, embed_size, hidden_size, vocab_size, drop_prob=0.1, max_batch_size=64, max_captions_len=64):
         super(DecoderRNN, self).__init__()
         
         self.embed_size = embed_size
@@ -52,8 +52,8 @@ class DecoderRNN(nn.Module):
         # initialize the weights
         self.init_weights()
         
-        self.max_captions_len = 64 # actually it is 57, but this is more round
-        self.max_batch_size = 64
+        self.max_captions_len = max_captions_len # actually it is 57, but this is more round
+        self.max_batch_size = max_batch_size
         
         #self.outputs = torch.zeros(batch_size, captions_len, self.vocab_size)
         
