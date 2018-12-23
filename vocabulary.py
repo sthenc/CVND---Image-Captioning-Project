@@ -91,5 +91,11 @@ class Vocabulary(object):
             return self.word2idx[self.unk_word]
         return self.word2idx[word]
 
+    def get_word(self, idx):
+        """perform conversion from index back to original string"""
+        # this shouldn't be possible, I messed something up if this happens so fail loudly
+        assert idx in self.idx2word, "Received unknown word index: %d" % idx  
+        return self.idx2word[idx]
+    
     def __len__(self):
         return len(self.word2idx)
