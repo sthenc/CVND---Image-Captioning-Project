@@ -13,6 +13,9 @@ class EncoderCNN(nn.Module):
         modules = list(resnet.children())[:-1]
         self.resnet = nn.Sequential(*modules)
         self.embed = nn.Linear(resnet.fc.in_features, embed_size)
+        
+        # add batch normalization?
+        #self.bn = nn.Batch
 
     def forward(self, images):
         features = self.resnet(images)
@@ -47,7 +50,7 @@ class DecoderRNN(nn.Module):
         self.log_softmax = nn.LogSoftmax(dim=-1)
         
         # init hidden states - contains tuple (h, c)
-        self.hidden = self.init_hidden()
+        #self.hidden = self.init_hidden()
         
         # initialize the weights
         self.init_weights()
@@ -57,15 +60,17 @@ class DecoderRNN(nn.Module):
         
         #self.outputs = torch.zeros(batch_size, captions_len, self.vocab_size)
         
-        self.embeds = torch.zeros(self.max_batch_size, self.max_captions_len, self.embed_size)
+        #self.embeds = torch.zeros(self.max_batch_size, self.max_captions_len, self.embed_size)
     
-        self.lstm_out = torch.zeros(self.max_batch_size, self.max_captions_len, self.hidden_size)
+        #self.lstm_out = torch.zeros(self.max_batch_size, self.max_captions_len, self.hidden_size)
     
-        self.outputs = torch.zeros(self.max_captions_len, self.max_batch_size, self.vocab_size)
+        #self.outputs = torch.zeros(self.max_captions_len, self.max_batch_size, self.vocab_size)
     
     def init_weights(self):
         ''' Initialize weights for fully connected layer '''
-        initrange = 0.1
+
+        # initialize embeddings
+        self.word_embeddings.weight.data.uniform_(-0.1, 0.1)
         
         # Set bias tensor to all zeros
         self.fc.bias.data.fill_(0)
@@ -89,34 +94,34 @@ class DecoderRNN(nn.Module):
         captions_len = captions.shape[1]
         
         # reset hidden states
-        self.hidden = self.init_hidden()
+        hidden = self.init_hidden()
         
         #print("batch_size: ", batch_size)
         
         #print("feat unsqueezed", features.unsqueeze(1).shape)
         
-        # put the image features (in embedding space) at the start of the input vector for LSTM
-        self.embeds[:, 0, :] = features.unsqueeze(1)[0:batch_size, 0, 0:self.embed_size]
-        
         # compute the rest of the embeddings
         # (excluding <end>, which is the expected output for the last step but never passed as input)
-        self.embeds[:, 1:captions_len, :] = self.word_embeddings(
-                                                                 captions[0:batch_size, 0:(captions_len-1)]
-                                                                )
+        embeds = self.word_embeddings( captions[0:batch_size, 0:(captions_len-1)] ) # batch_size, captions_len, embed_size
+        
+        # put the image features (in embedding space) at the start of the input vector for LSTM
+        # concat along captions_len dimension
+        embeds = torch.cat((features.unsqueeze(1), embeds), 1)
+        
         
         # lstm expects captions_len, batch_size, embed_size
         #for some reason I need to call .cuda here, I guess permute doesn't work in GPU memory?
-        self.lstm_out, self.hidden = self.lstm(self.embeds.permute(1,0,2).cuda())
+        lstm_out, hidden = self.lstm(embeds.permute(1,0,2).cuda())
         
         # chain the operations so I don't need to declare more temporary matrices 
-        self.outputs = self.log_softmax(
+        outputs = self.log_softmax(
                                        self.fc(
-                                           self.dropout(self.lstm_out)
+                                           self.dropout(lstm_out)
                                        )
                                     )
         
         # discard what we don't need to return, otherwise the automatic checks complain
-        return self.outputs[0:captions_len, 0:batch_size, 0:self.vocab_size].permute(1,0,2)
+        return outputs[0:captions_len, 0:batch_size, 0:self.vocab_size].permute(1,0,2)
 
     def sample(self, inputs, states=None, max_len=20):
         " accepts pre-processed image tensor (inputs) and returns predicted sentence (list of tensor ids of length max_len) "
@@ -125,21 +130,21 @@ class DecoderRNN(nn.Module):
         word_indexes = []
         
         # forget everything
-        self.hidden = self.init_hidden()
+        hidden = self.init_hidden()
         
         # this will be (1, 1, embed_size)
         #inputs.unsqueeze_(0).unsqueeze_(0)
         
         
-        self.lstm_out, self.hidden = self.lstm(inputs)
+        lstm_out, hidden = self.lstm(inputs)
         
-        self.outputs = self.log_softmax(
+        outputs = self.log_softmax(
                                self.fc(self.lstm_out)
                             )
         
         # get the index of the highest output from the network
         word_indexes.append(int(torch.max(
-                                    self.outputs[0:1, 0:1, 0:self.vocab_size].squeeze(),
+                                    outputs[0:1, 0:1, 0:self.vocab_size].squeeze(),
                                     0
                                    )[1]
                         ))
@@ -152,14 +157,14 @@ class DecoderRNN(nn.Module):
             
             #print(embeds.shape)
             
-            self.lstm_out, self.hidden = self.lstm(embeds)
+            lstm_out, hidden = self.lstm(embeds)
         
-            self.outputs = self.log_softmax(
-                                   self.fc(self.lstm_out)
+            outputs = self.log_softmax(
+                                   self.fc(lstm_out)
                                 )
             # get the index of the highest output from the network
             word_indexes.append(int(torch.max(
-                                        self.outputs[0:1, 0:1, 0:self.vocab_size].squeeze(),
+                                        outputs[0:1, 0:1, 0:self.vocab_size].squeeze(),
                                         0
                                        )[1]
                             ))
