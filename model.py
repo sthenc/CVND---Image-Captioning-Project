@@ -122,11 +122,14 @@ class DecoderRNN(nn.Module):
         " accepts pre-processed image tensor (inputs) and returns predicted sentence (list of tensor ids of length max_len) "
         # what is states for?
         
+        word_indexes = []
+        
         # forget everything
         self.hidden = self.init_hidden()
         
         # this will be (1, 1, embed_size)
-        inputs.unsqueeze_(0).unsqueeze_(0)
+        #inputs.unsqueeze_(0).unsqueeze_(0)
+        
         
         self.lstm_out, self.hidden = self.lstm(inputs)
         
@@ -134,10 +137,35 @@ class DecoderRNN(nn.Module):
                                self.fc(self.lstm_out)
                             )
         
-        word_index = int(torch.max(
-                                    self.outputs[0:1, 0:1, 0:vocab_size].squeeze(),
+        # get the index of the highest output from the network
+        word_indexes.append(int(torch.max(
+                                    self.outputs[0:1, 0:1, 0:self.vocab_size].squeeze(),
                                     0
                                    )[1]
-                        )
+                        ))
+        # got the initial predicition, it should be 0 / <start>
         
-        return word_index # not tested yet
+        for i in range(0, max_len):
+            
+            # output form the first step is input for the next step
+            embeds = self.word_embeddings(torch.cuda.LongTensor( [[ word_indexes[i] ]] ))
+            
+            #print(embeds.shape)
+            
+            self.lstm_out, self.hidden = self.lstm(embeds)
+        
+            self.outputs = self.log_softmax(
+                                   self.fc(self.lstm_out)
+                                )
+            # get the index of the highest output from the network
+            word_indexes.append(int(torch.max(
+                                        self.outputs[0:1, 0:1, 0:self.vocab_size].squeeze(),
+                                        0
+                                       )[1]
+                            ))
+            
+            # check if we predicted <end>, if yes then stop
+            if (word_indexes[i+1] == 1):
+                break
+        
+        return word_indexes # not tested yet
