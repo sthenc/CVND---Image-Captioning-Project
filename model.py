@@ -143,7 +143,7 @@ class DecoderRNN(nn.Module):
         lstm_out, hidden = self.lstm(inputs)
         
         outputs = self.log_softmax(
-                               self.fc(self.lstm_out)
+                               self.fc(lstm_out)
                             )
         
         # get the index of the highest output from the network
