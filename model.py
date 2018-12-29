@@ -81,13 +81,13 @@ class DecoderRNN(nn.Module):
         # FC weights as random uniform
         self.fc.weight.data.uniform_(-1, 1) 
         
-    def init_hidden(self):
+    def init_hidden(self, batch_size):
         ''' At the start of training, we need to initialize a hidden state;
            there will be none because the hidden state is formed based on perviously seen data.
            So, this function defines a hidden state with all zeroes and of a specified size.'''
         # The axes dimensions are (n_layers, batch_size, hidden_size)
-        return (torch.zeros(1, 1, self.hidden_size),
-                torch.zeros(1, 1, self.hidden_size))
+        return (torch.zeros(1, batch_size, self.hidden_size),
+                torch.zeros(1, batch_size, self.hidden_size))
        
     
     # this link was useful to understand the magic that needs to happen here
@@ -98,7 +98,7 @@ class DecoderRNN(nn.Module):
         captions_len = captions.shape[1]
         
         # reset hidden states
-        hidden = self.init_hidden()
+        hidden = self.init_hidden(batch_size)
         
         #print("batch_size: ", batch_size)
         
@@ -134,7 +134,7 @@ class DecoderRNN(nn.Module):
         word_indexes = []
         
         # forget everything
-        hidden = self.init_hidden()
+        hidden = self.init_hidden(batch_size=1)
         
         # this will be (1, 1, embed_size)
         #inputs.unsqueeze_(0).unsqueeze_(0)
