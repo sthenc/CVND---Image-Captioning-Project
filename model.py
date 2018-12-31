@@ -24,7 +24,7 @@ class EncoderCNN(nn.Module):
         features = features.view(features.size(0), -1)
         features = self.embed(features) # batch_size, embed_size
         
-        features = self.bn(features)
+        #features = self.bn(features)
         return features
     
 
