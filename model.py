@@ -115,7 +115,7 @@ class DecoderRNN(nn.Module):
         
         # lstm expects captions_len, batch_size, embed_size
         #for some reason I need to call .cuda here, I guess permute doesn't work in GPU memory?
-        lstm_out, hidden = self.lstm(embeds.permute(1,0,2).cuda())
+        lstm_out, hidden = self.lstm(embeds.permute(1,0,2).cuda(), (hidden[0].cuda(), hidden[1].cuda()))
         
         # chain the operations so I don't need to declare more temporary matrices 
         outputs = self.log_softmax(
@@ -140,7 +140,7 @@ class DecoderRNN(nn.Module):
         #inputs.unsqueeze_(0).unsqueeze_(0)
         
         
-        lstm_out, hidden = self.lstm(inputs)
+        lstm_out, hidden = self.lstm(inputs, hidden)
         
         outputs = self.log_softmax(
                                self.fc(lstm_out)
@@ -161,7 +161,7 @@ class DecoderRNN(nn.Module):
             
             #print(embeds.shape)
             
-            lstm_out, hidden = self.lstm(embeds)
+            lstm_out, hidden = self.lstm(embeds, hidden)
         
             outputs = self.log_softmax(
                                    self.fc(lstm_out)
