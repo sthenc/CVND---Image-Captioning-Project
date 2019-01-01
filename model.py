@@ -10,6 +10,9 @@ class EncoderCNN(nn.Module):
         for param in resnet.parameters():
             param.requires_grad_(False)
         
+        print(resnet)
+        #modules = list(resnet.children())[:-3] # 1024 x 14 x14
+        #modules = list(resnet.children())[:-2] # 512 x 7 x 7
         modules = list(resnet.children())[:-1]
         self.resnet = nn.Sequential(*modules)
         
@@ -21,13 +24,47 @@ class EncoderCNN(nn.Module):
 
     def forward(self, images):
         features = self.resnet(images)
+        print("encoder ", features.shape)
         features = features.view(features.size(0), -1)
+        print("encoder ", features.shape)
+        
         features = self.embed(features) # batch_size, embed_size
         
+        print("encoder ", images.shape, features.shape)
         #features = self.bn(features)
         return features
     
+class AttentionNN(nn.Module):
+    def __init__(self, embed_size):
+        super(EncoderCNN, self).__init__()
+        resnet = models.resnet50(pretrained=True)
+        for param in resnet.parameters():
+            param.requires_grad_(False)
+        
+        print(resnet)
+        #modules = list(resnet.children())[:-3] # 1024 x 14 x14
+        #modules = list(resnet.children())[:-2] # 512 x 7 x 7
+        modules = list(resnet.children())[:-1]
+        self.resnet = nn.Sequential(*modules)
+        
+        # add embedding layer after 
+        self.embed = nn.Linear(resnet.fc.in_features, embed_size)
+        
+        # add batch normalization?
+        self.bn = nn.BatchNorm1d(embed_size, momentum=0.01)
 
+    def forward(self, images):
+        features = self.resnet(images)
+        print("encoder ", features.shape)
+        features = features.view(features.size(0), -1)
+        print("encoder ", features.shape)
+        
+        features = self.embed(features) # batch_size, embed_size
+        
+        print("encoder ", images.shape, features.shape)
+        #features = self.bn(features)
+        return features
+    
 class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, drop_prob=0.1, max_batch_size=64, max_captions_len=64):
         super(DecoderRNN, self).__init__()
@@ -123,9 +160,11 @@ class DecoderRNN(nn.Module):
                                            self.dropout(lstm_out)
                                        )
                                     )
+        ret = outputs[0:captions_len, 0:batch_size, 0:self.vocab_size].permute(1,0,2)
         
+        print("ret", ret.shape, ret[0, 0, :])
         # discard what we don't need to return, otherwise the automatic checks complain
-        return outputs[0:captions_len, 0:batch_size, 0:self.vocab_size].permute(1,0,2)
+        return ret
 
     def sample(self, inputs, states=None, max_len=20):
         " accepts pre-processed image tensor (inputs) and returns predicted sentence (list of tensor ids of length max_len) "
@@ -156,6 +195,7 @@ class DecoderRNN(nn.Module):
         
         for i in range(0, max_len):
             
+            
             # output form the first step is input for the next step
             embeds = self.word_embeddings(torch.cuda.LongTensor( [[ word_indexes[i] ]] ))
             
@@ -168,7 +208,7 @@ class DecoderRNN(nn.Module):
                                 )
             # get the index of the highest output from the network
             word_indexes.append(int(torch.max(
-                                        outputs[0:1, 0:1, 0:self.vocab_size].squeeze(),
+                                        outputs.squeeze(),
                                         0
                                        )[1]
                             ))
