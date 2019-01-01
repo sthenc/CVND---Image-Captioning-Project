@@ -27,7 +27,16 @@ class EncoderCNN(nn.Module):
         #features = self.bn(features)
         return features
     
+class AttentionNN(nn.Module):
+    def __init__(self, embed_size):
+        super(EncoderCNN, self).__init__()
+        
+        
 
+    def forward(self, images):
+        
+        return features
+    
 class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, drop_prob=0.1, max_batch_size=64, max_captions_len=64):
         super(DecoderRNN, self).__init__()
