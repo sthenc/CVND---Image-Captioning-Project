@@ -38,7 +38,7 @@ class DecoderRNN(nn.Module):
         
         # layer that turns words (represented by an integer -  vocabulary index)
         # into a vector of a specified size
-        self.word_embeddings = nn.Embedding(vocab_size, embed_size)
+        self.word_embeddings = nn.Embedding(vocab_size, embed_size, max_norm=1.0)
         
         # lstm takes takes word in embedded space - a vector(0.. embed_size-1) 
         # and outputs hidden states - vector (0 .. hidden_size-1)
