@@ -140,7 +140,7 @@ class DecoderRNN(nn.Module):
         #inputs.unsqueeze_(0).unsqueeze_(0)
         
         
-        lstm_out, hidden = self.lstm(inputs, hidden)
+        lstm_out, hidden = self.lstm(inputs.cuda(), (hidden[0].cuda(), hidden[1].cuda()))
         
         outputs = self.log_softmax(
                                self.fc(lstm_out)
@@ -161,7 +161,7 @@ class DecoderRNN(nn.Module):
             
             #print(embeds.shape)
             
-            lstm_out, hidden = self.lstm(embeds, hidden)
+            lstm_out, hidden = self.lstm(embeds.cuda(), (hidden[0].cuda(), hidden[1].cuda()))
         
             outputs = self.log_softmax(
                                    self.fc(lstm_out)
