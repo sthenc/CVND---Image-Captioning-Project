@@ -29,7 +29,7 @@ class EncoderCNN(nn.Module):
     
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, drop_prob=0.1, max_batch_size=64, max_captions_len=64):
+    def __init__(self, embed_size, hidden_size, vocab_size, drop_prob=0.4, max_batch_size=64, max_captions_len=64):
         super(DecoderRNN, self).__init__()
         
         self.embed_size = embed_size
