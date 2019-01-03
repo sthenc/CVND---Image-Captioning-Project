@@ -38,11 +38,11 @@ class DecoderRNN(nn.Module):
         
         # layer that turns words (represented by an integer -  vocabulary index)
         # into a vector of a specified size
-        self.word_embeddings = nn.Embedding(vocab_size, embed_size, max_norm=1.0)
+        self.word_embeddings = nn.Embedding(vocab_size, embed_size)
         
         # lstm takes takes word in embedded space - a vector(0.. embed_size-1) 
         # and outputs hidden states - vector (0 .. hidden_size-1)
-        self.lstm = nn.LSTM(embed_size, hidden_size)
+        self.lstm = nn.LSTM(embed_size, hidden_size, batch_first=True)
         
         # dropout layer
         self.dropout = nn.Dropout(drop_prob)
@@ -51,7 +51,7 @@ class DecoderRNN(nn.Module):
         self.fc = nn.Linear(hidden_size, vocab_size)
         
         # apply across vocab_size dimension
-        self.log_softmax = nn.LogSoftmax(dim=-1)
+        #self.log_softmax = nn.LogSoftmax(dim=-1)
         
         # init hidden states - contains tuple (h, c)
         #self.hidden = self.init_hidden()
@@ -115,17 +115,15 @@ class DecoderRNN(nn.Module):
         
         # lstm expects captions_len, batch_size, embed_size
         #for some reason I need to call .cuda here, I guess permute doesn't work in GPU memory?
-        lstm_out, hidden = self.lstm(embeds.permute(1,0,2).cuda(), (hidden[0].cuda(), hidden[1].cuda()))
+        lstm_out, hidden = self.lstm(embeds.cuda(), (hidden[0].cuda(), hidden[1].cuda()))
         
         # chain the operations so I don't need to declare more temporary matrices 
-        outputs = self.log_softmax(
-                                       self.fc(
+        outputs = self.fc(
                                            self.dropout(lstm_out)
                                        )
-                                    )
         
         # discard what we don't need to return, otherwise the automatic checks complain
-        return outputs[0:captions_len, 0:batch_size, 0:self.vocab_size].permute(1,0,2)
+        return outputs
 
     def sample(self, inputs, states=None, max_len=20):
         " accepts pre-processed image tensor (inputs) and returns predicted sentence (list of tensor ids of length max_len) "
@@ -142,9 +140,8 @@ class DecoderRNN(nn.Module):
         
         lstm_out, hidden = self.lstm(inputs.cuda(), (hidden[0].cuda(), hidden[1].cuda()))
         
-        outputs = self.log_softmax(
-                               self.fc(lstm_out)
-                            )
+        outputs = self.fc(lstm_out)
+       
         
         # get the index of the highest output from the network
         word_indexes.append(int(torch.max(
@@ -163,9 +160,8 @@ class DecoderRNN(nn.Module):
             
             lstm_out, hidden = self.lstm(embeds.cuda(), (hidden[0].cuda(), hidden[1].cuda()))
         
-            outputs = self.log_softmax(
-                                   self.fc(lstm_out)
-                                )
+            outputs = self.fc(lstm_out)
+            
             # get the index of the highest output from the network
             word_indexes.append(int(torch.max(
                                         outputs[0:1, 0:1, 0:self.vocab_size].squeeze(),
