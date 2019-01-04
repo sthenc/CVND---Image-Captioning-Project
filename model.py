@@ -29,7 +29,7 @@ class EncoderCNN(nn.Module):
     
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, drop_prob=0.4, max_batch_size=64, max_captions_len=64):
+    def __init__(self, embed_size, hidden_size, vocab_size, drop_prob=0.4):
         super(DecoderRNN, self).__init__()
         
         self.embed_size = embed_size
@@ -42,6 +42,7 @@ class DecoderRNN(nn.Module):
         
         # lstm takes takes word in embedded space - a vector(0.. embed_size-1) 
         # and outputs hidden states - vector (0 .. hidden_size-1)
+        # need to use batch_first to avoid having to use the permute operation
         self.lstm = nn.LSTM(embed_size, hidden_size, batch_first=True)
         
         # dropout layer
@@ -50,25 +51,9 @@ class DecoderRNN(nn.Module):
         # output linear layer, scores for the various words
         self.fc = nn.Linear(hidden_size, vocab_size)
         
-        # apply across vocab_size dimension
-        #self.log_softmax = nn.LogSoftmax(dim=-1)
-        
-        # init hidden states - contains tuple (h, c)
-        #self.hidden = self.init_hidden()
-        
         # initialize the weights
         self.init_weights()
-        
-        self.max_captions_len = max_captions_len # actually it is 57, but this is more round
-        self.max_batch_size = max_batch_size
-        
-        #self.outputs = torch.zeros(batch_size, captions_len, self.vocab_size)
-        
-        #self.embeds = torch.zeros(self.max_batch_size, self.max_captions_len, self.embed_size)
-    
-        #self.lstm_out = torch.zeros(self.max_batch_size, self.max_captions_len, self.hidden_size)
-    
-        #self.outputs = torch.zeros(self.max_captions_len, self.max_batch_size, self.vocab_size)
+
     
     def init_weights(self):
         ''' Initialize weights for fully connected layer '''
@@ -100,10 +85,6 @@ class DecoderRNN(nn.Module):
         # reset hidden states
         hidden = self.init_hidden(batch_size)
         
-        #print("batch_size: ", batch_size)
-        
-        #print("feat unsqueezed", features.unsqueeze(1).shape)
-        
         # compute the rest of the embeddings
         # (excluding <end>, which is the expected output for the last step but never passed as input)
         embeds = self.word_embeddings( captions[0:batch_size, 0:(captions_len-1)] ) # batch_size, captions_len, embed_size
@@ -112,17 +93,14 @@ class DecoderRNN(nn.Module):
         # concat along captions_len dimension
         embeds = torch.cat((features.unsqueeze(1), embeds), 1)
         
-        
         # lstm expects captions_len, batch_size, embed_size
-        #for some reason I need to call .cuda here, I guess permute doesn't work in GPU memory?
+        #for some reason I need to call .cuda here, not sure why? Maybe not neccessary any more
+        # I trained this on a private machine, maybe it is caused by a different pytorch version
         lstm_out, hidden = self.lstm(embeds.cuda(), (hidden[0].cuda(), hidden[1].cuda()))
         
         # chain the operations so I don't need to declare more temporary matrices 
-        outputs = self.fc(
-                                           self.dropout(lstm_out)
-                                       )
+        outputs = self.fc(self.dropout(lstm_out))
         
-        # discard what we don't need to return, otherwise the automatic checks complain
         return outputs
 
     def sample(self, inputs, states=None, max_len=20):
@@ -133,9 +111,6 @@ class DecoderRNN(nn.Module):
         
         # forget everything
         hidden = self.init_hidden(batch_size=1)
-        
-        # this will be (1, 1, embed_size)
-        #inputs.unsqueeze_(0).unsqueeze_(0)
         
         
         lstm_out, hidden = self.lstm(inputs.cuda(), (hidden[0].cuda(), hidden[1].cuda()))
@@ -155,8 +130,6 @@ class DecoderRNN(nn.Module):
             
             # output form the first step is input for the next step
             embeds = self.word_embeddings(torch.cuda.LongTensor( [[ word_indexes[i] ]] ))
-            
-            #print(embeds.shape)
             
             lstm_out, hidden = self.lstm(embeds.cuda(), (hidden[0].cuda(), hidden[1].cuda()))
         
