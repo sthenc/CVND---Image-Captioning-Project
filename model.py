@@ -16,15 +16,12 @@ class EncoderCNN(nn.Module):
         # add embedding layer after 
         self.embed = nn.Linear(resnet.fc.in_features, embed_size)
         
-        # add batch normalization?
-        self.bn = nn.BatchNorm1d(embed_size, momentum=0.01)
 
     def forward(self, images):
         features = self.resnet(images)
         features = features.view(features.size(0), -1)
         features = self.embed(features) # batch_size, embed_size
         
-        #features = self.bn(features)
         return features
     
 
